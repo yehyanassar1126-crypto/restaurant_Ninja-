@@ -603,7 +603,8 @@
             left: 0;
             width: 420px;
             max-width: 90vw;
-            height: 100vh;
+            height: 100vh; /* Fallback for older browsers */
+            height: 100dvh;
             background: var(--espresso-light);
             border-right: 1px solid var(--glass-border);
             z-index: 2001;
@@ -754,6 +755,7 @@
 
         .cart-footer {
             padding: 1.5rem;
+            padding-bottom: calc(1.5rem + env(safe-area-inset-bottom, 10px));
             border-top: 1px solid var(--glass-border);
             background: rgba(0, 0, 0, 0.2);
         }
