@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow"><title>لوحة الإدارة - Flavour Haven</title>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root{
+    --bg:#1C1410; --panel:#2A1F17; --panel-2:#3D2E22; --line:rgba(255,255,255,.09);
+    --text:#eaeaea; --muted:#9aa0b8; --accent:#D4A853; --accent-dark:#B8912F;
+    --ok:#4ade80; --warn:#fbbf24; --radius:14px;
+    --font:'Cairo',system-ui,sans-serif;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+[hidden]{display:none!important}
+html{scroll-padding-top:90px}
+body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden}
+button,input,select,textarea{font-family:inherit;font-size:1rem;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+/* ---------- login ---------- */
+#login{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:var(--bg);z-index:50;padding:1.5rem}
+.login-box{width:100%;max-width:380px;background:var(--panel);border:1px solid var(--line);border-radius:20px;padding:2rem}
+.login-box img{width:150px;display:block;margin:0 auto 1.2rem}
+.login-box h1{font-size:1.2rem;text-align:center;margin-bottom:1.2rem}
+.field{display:block;margin-bottom:1rem}
+.field span{display:block;font-size:.85rem;color:var(--muted);margin-bottom:6px;font-weight:600}
+.input{width:100%;padding:11px 14px;background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:10px;outline:none}
+.input:focus{border-color:var(--accent)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:10px 18px;border:1px solid var(--line);background:rgba(255,255,255,.05);border-radius:10px;cursor:pointer;font-weight:700;transition:background .2s,border-color .2s}
+.btn:hover{border-color:var(--accent)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.primary:hover{background:var(--accent-dark)}
+.btn.ok{background:var(--ok);border-color:var(--ok);color:#10261a}
+.btn.danger:hover{border-color:#ff5d73;color:#ff5d73}
+.btn.small{padding:6px 12px;font-size:.85rem}
+.err{color:#ff8a9b;font-size:.9rem;min-height:1.3em;margin-top:.6rem;text-align:center}
+
+/* ---------- shell ---------- */
+header.top{position:sticky;top:0;z-index:20;background:rgba(28,20,16,.92);backdrop-filter:blur(10px);border-bottom:1px solid var(--line);padding:.8rem 1.2rem;padding-top:calc(.8rem + env(safe-area-inset-top,0px));display:flex;align-items:center;gap:1rem;flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:10px;font-weight:900;font-size:1.1rem}
+.brand i{color:var(--accent)}
+.spacer{flex:1}
+main{max-width:1250px;margin:0 auto;padding:1.2rem 1.2rem 4rem}
+
+/* today figure: the one thing to remember on this page */
+.today{display:grid;grid-template-columns:minmax(260px,1.2fr) 2fr;gap:1rem;margin-bottom:1.4rem}
+.today-main{background:linear-gradient(135deg,#D4A853,#8a6a24);border-radius:20px;padding:1.4rem 1.6rem;display:flex;flex-direction:column;justify-content:center}
+.today-main small{opacity:.85;font-weight:600}
+.today-main .big{font-size:clamp(2.4rem,6vw,3.6rem);font-weight:900;line-height:1.1;margin:.2rem 0}
+.today-main .sub{opacity:.9;font-size:.95rem}
+.pay-grid{align-content:center;display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:.8rem}
+.pay-card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:.9rem 1rem}
+.pay-card small{color:var(--muted);font-weight:600;display:flex;align-items:center;gap:6px}
+.pay-card b{display:block;font-size:1.4rem;margin-top:4px}
+
+.tabs{display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:1.2rem;border-bottom:1px solid var(--line);padding-bottom:.8rem}
+.tab{padding:9px 18px;border-radius:999px;border:1px solid var(--line);background:transparent;cursor:pointer;font-weight:700;color:var(--muted);display:flex;align-items:center;gap:8px}
+.tab.active{background:var(--accent);border-color:var(--accent);color:#fff}
+.tab .count{background:var(--ok);color:#10261a;border-radius:999px;font-size:.75rem;padding:1px 8px;font-weight:900}
+.tab .count.zero{display:none}
+.pane{display:none}.pane.active{display:block}
+
+/* ---------- requests ---------- */
+.req-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:1rem}
+.req{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:1.1rem;display:flex;flex-direction:column;gap:.8rem}
+.req-head{display:flex;justify-content:space-between;gap:.6rem;align-items:flex-start}
+.req-head h3{font-size:1.1rem}
+.req-head .meta{color:var(--muted);font-size:.85rem;margin-top:2px;direction:ltr;text-align:right}
+.queue{background:var(--panel-2);border-radius:8px;padding:2px 10px;font-weight:900;font-size:.85rem;color:var(--muted);white-space:nowrap}
+.kv{display:flex;flex-wrap:wrap;gap:.4rem .9rem;font-size:.9rem;color:var(--muted)}
+.kv b{color:var(--text)}
+.lines{border-top:1px dashed var(--line);padding-top:.7rem;display:flex;flex-direction:column;gap:.45rem;font-size:.92rem}
+.line{display:flex;justify-content:space-between;gap:.8rem}
+.line .name{display:flex;gap:8px;align-items:flex-start}
+.line .name i{color:var(--accent);margin-top:5px;width:16px;text-align:center}
+.line .amt{font-weight:700;white-space:nowrap}
+.req-total{display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--line);padding-top:.7rem}
+.req-total b{font-size:1.5rem;color:var(--accent)}
+.pay-pick{display:grid;grid-template-columns:repeat(2,1fr);gap:.5rem}
+.pay-pick label{cursor:pointer}
+.pay-pick input{position:absolute;opacity:0;pointer-events:none}
+.pay-pick span{display:flex;align-items:center;justify-content:center;gap:7px;padding:9px 6px;border:1.5px solid var(--line);border-radius:10px;font-weight:700;font-size:.9rem;transition:all .15s}
+.pay-pick input:checked + span{border-color:var(--ok);background:rgba(74,222,128,.12);color:var(--ok)}
+.pay-pick input:focus-visible + span{outline:2px solid var(--accent)}
+.req-actions{display:flex;gap:.6rem}
+.req-actions .btn.ok{flex:1}
+
+.empty{text-align:center;color:var(--muted);padding:3.5rem 1rem;border:1px dashed var(--line);border-radius:var(--radius)}
+.empty i{font-size:2.2rem;display:block;margin-bottom:.8rem;opacity:.6}
+
+/* ---------- tables ---------- */
+.toolbar{display:flex;gap:.7rem;flex-wrap:wrap;align-items:center;margin-bottom:1rem}
+.toolbar .input{width:auto;min-width:200px}
+.tbl-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:var(--radius);background:var(--panel)}
+table{width:100%;border-collapse:collapse;min-width:720px}
+th,td{padding:10px 14px;text-align:right;border-bottom:1px solid var(--line);font-size:.92rem;vertical-align:top}
+th{background:var(--panel-2);color:var(--muted);font-weight:700;font-size:.82rem;position:sticky;top:0}
+tbody tr:last-child td{border-bottom:none}
+td.num,th.num{text-align:center;font-variant-numeric:tabular-nums}
+tfoot td{font-weight:900;background:var(--panel-2)}
+.tag{display:inline-block;padding:2px 10px;border-radius:999px;font-size:.78rem;font-weight:700;background:var(--panel-2)}
+.tag.none{color:var(--muted)}
+.low{color:var(--warn);font-weight:900}
+.zero{color:#ff8a9b;font-weight:900}
+.pos{color:var(--ok)}.neg{color:#ff8a9b}
+.note{color:var(--muted);font-size:.85rem;margin-top:.8rem;line-height:1.7}
+
+/* ---------- modal ---------- */
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.7);display:none;align-items:center;justify-content:center;z-index:60;padding:1rem}
+.modal-bg.open{display:flex}
+.modal{background:var(--panel);border:1px solid var(--line);border-radius:18px;width:100%;max-width:440px;padding:1.5rem;max-height:92vh;overflow:auto}
+.modal h3{margin-bottom:1rem;font-size:1.15rem}
+.modal .row{display:grid;grid-template-columns:1fr 1fr;gap:.8rem}
+.modal .actions{display:flex;gap:.6rem;margin-top:.4rem}
+.modal .actions .btn.primary{flex:1}
+
+.toast{position:fixed;bottom:calc(1.2rem + env(safe-area-inset-bottom,0px));left:50%;transform:translateX(-50%);background:#0f3d24;border:1px solid var(--ok);color:var(--ok);padding:10px 22px;border-radius:999px;font-weight:700;z-index:80;opacity:0;pointer-events:none;transition:opacity .25s}
+.toast.show{opacity:1}.toast.bad{background:#4a1520;border-color:#ff5d73;color:#ff8a9b}
+
+@media (max-width:820px){
+    .today{grid-template-columns:1fr}
+    .req-list{grid-template-columns:1fr}
+    main{padding:1rem .8rem 4rem}
+}
+
+.btn.primary,.tab.active{color:#1C1410}.today-main{color:#1C1410}.stars{color:var(--accent);white-space:nowrap}
+.login-box .logo{font-size:2.4rem;text-align:center;color:var(--accent);margin-bottom:.4rem}
+</style></head><body>
+<div id="login"><div class="login-box">
+  <div class="logo"><i class="fas fa-utensils"></i></div><h1>لوحة الإدارة — Flavour Haven</h1>
+  <label class="field"><span>اسم المستخدم</span><input class="input" id="un" autocomplete="username" autocapitalize="none" dir="ltr"></label>
+  <label class="field"><span>كلمة السر</span><input class="input" type="password" id="pw" autocomplete="current-password" dir="ltr"></label>
+  <button class="btn primary" style="width:100%" id="loginBtn">دخول</button><div class="err" id="loginErr"></div>
+</div></div>
+
+<header class="top" id="topbar" hidden>
+  <div class="brand"><i class="fas fa-utensils"></i> Flavour Haven</div><div class="spacer"></div>
+  <span id="whoami" style="color:var(--muted);font-size:.9rem"></span>
+  <button class="btn small" id="refreshBtn"><i class="fas fa-rotate"></i> تحديث</button>
+  <button class="btn small primary" id="exportBtn"><i class="fas fa-file-excel"></i> تصدير Excel</button>
+  <button class="btn small" id="logoutBtn"><i class="fas fa-right-from-bracket"></i> خروج</button>
+</header>
+
+<main id="app" hidden>
+  <section class="today">
+    <div class="today-main"><small>إجمالي اليوم — <span id="todayLabel"></span></small>
+      <div class="big"><span id="todayTotal">0</span> <span style="font-size:1.2rem;font-weight:700">ج.م</span></div>
+      <div class="sub"><span id="todayCount">0</span> طلب مؤكد</div></div>
+    <div class="pay-grid" id="todayPay"></div>
+  </section>
+  <nav class="tabs">
+    <button class="tab active" data-tab="requests"><i class="fas fa-inbox"></i> الطلبات <span class="count zero" id="pendingCount">0</span></button>
+    <button class="tab" data-tab="day"><i class="fas fa-calendar-day"></i> حساب اليوم</button>
+    <button class="tab" data-tab="orders"><i class="fas fa-receipt"></i> كل الطلبات</button>
+    <button class="tab" data-tab="menu"><i class="fas fa-bowl-food"></i> المنيو</button>
+    <button class="tab" data-tab="feedback"><i class="fas fa-star"></i> التقييمات</button>
+    <button class="tab" data-tab="admins"><i class="fas fa-user-shield"></i> المديرين</button>
+  </nav>
+
+  <section class="pane active" id="pane-requests"><div class="req-list" id="reqList"></div></section>
+
+  <section class="pane" id="pane-day">
+    <div class="toolbar"><label class="field" style="margin:0;display:flex;align-items:center;gap:8px"><span style="margin:0">اليوم</span>
+      <input type="date" class="input" id="dayPicker"></label><button class="btn small" id="todayBtn">النهارده</button></div>
+    <div class="tbl-wrap"><table><thead><tr><th>الوقت</th><th>العميل</th><th>النوع</th><th>الطلب</th><th class="num">الإجمالي</th><th>الدفع</th></tr></thead>
+      <tbody id="dayRows"></tbody><tfoot id="dayFoot"></tfoot></table></div>
+    <h3 style="margin:1.6rem 0 .8rem">إجمالي الأيام السابقة</h3>
+    <div class="tbl-wrap"><table><thead><tr><th>اليوم</th><th class="num">الطلبات</th><th class="num">الإجمالي</th><th class="num">كاش</th><th class="num">فيزا</th><th class="num">إنستاباي</th><th class="num">محفظة</th><th class="num">غير محدد</th></tr></thead>
+      <tbody id="historyRows"></tbody></table></div>
+  </section>
+
+  <section class="pane" id="pane-orders">
+    <div class="toolbar"><input class="input" id="ordSearch" placeholder="ابحث بالاسم أو التليفون"><span class="note" id="ordInfo" style="margin:0"></span></div>
+    <div class="tbl-wrap"><table><thead><tr><th>التاريخ</th><th>العميل</th><th>التليفون</th><th>النوع</th><th>الطلب</th><th class="num">الإجمالي</th><th>الدفع</th></tr></thead>
+      <tbody id="ordRows"></tbody></table></div>
+  </section>
+
+  <section class="pane" id="pane-menu">
+    <div class="toolbar"><button class="btn primary" id="newItemBtn"><i class="fas fa-plus"></i> صنف جديد</button></div>
+    <div class="tbl-wrap"><table><thead><tr><th>الصنف</th><th>القسم</th><th class="num">السعر</th><th>الحالة</th><th></th></tr></thead><tbody id="menuRows"></tbody></table></div>
+    <p class="note">«إخفاء» بيشيل الصنف من الموقع من غير ما يمسحه. المسح بيشتغل بس للأصناف اللي ماتباعتش قبل كده.</p>
+  </section>
+
+  <section class="pane" id="pane-feedback">
+    <div class="tbl-wrap"><table><thead><tr><th>التاريخ</th><th>العميل</th><th>التليفون</th><th>التقييم</th><th>النوع</th><th>الرسالة</th></tr></thead><tbody id="fbRows"></tbody></table></div>
+  </section>
+
+  <section class="pane" id="pane-admins">
+    <div class="toolbar"><button class="btn primary" id="newAdminBtn"><i class="fas fa-user-plus"></i> مدير جديد</button></div>
+    <div class="tbl-wrap"><table><thead><tr><th>الاسم</th><th>اسم المستخدم</th><th>آخر دخول</th><th></th></tr></thead><tbody id="adminRows"></tbody></table></div>
+    <p class="note">أي مدير يقدر يضيف أو يمسح مديرين تانيين ويغيّر كلمات السر. بعد 5 محاولات غلط الحساب بيتقفل 15 دقيقة.</p>
+  </section>
+</main>
+
+<div class="modal-bg" id="itemModal"><div class="modal">
+  <h3 id="itemTitle">صنف جديد</h3>
+  <label class="field"><span>الاسم (عربي)</span><input class="input" id="iName"></label>
+  <label class="field"><span>الاسم (إنجليزي)</span><input class="input" id="iNameEn" dir="ltr"></label>
+  <label class="field"><span>الوصف</span><input class="input" id="iDesc"></label>
+  <div class="row"><label class="field"><span>السعر (ج.م)</span><input class="input" type="number" min="0" step="0.01" id="iPrice"></label>
+    <label class="field"><span>القسم</span><select class="input" id="iCat"><option value="appetizers">مقبلات</option><option value="mains">أطباق رئيسية</option><option value="beverages">مشروبات</option><option value="desserts">حلويات</option></select></label></div>
+  <label class="field"><span><input type="checkbox" id="iPop"> الأكثر طلبًا ⭐</span></label>
+  <div class="err" id="itemErr"></div>
+  <div class="actions"><button class="btn primary" id="itemSave">حفظ</button><button class="btn" data-close>إلغاء</button></div>
+</div></div>
+
+<div class="modal-bg" id="adminModal"><div class="modal">
+  <h3 id="adminModalTitle">مدير جديد</h3>
+  <div id="adminNewFields"><label class="field"><span>الاسم (اختياري)</span><input class="input" id="aDisplay"></label>
+    <label class="field"><span>اسم المستخدم (إنجليزي)</span><input class="input" id="aUser" dir="ltr" autocapitalize="none"></label></div>
+  <label class="field"><span>كلمة السر (6 على الأقل)</span><input class="input" type="text" id="aPass" dir="ltr" autocomplete="off"></label>
+  <div class="err" id="adminErr"></div>
+  <div class="actions"><button class="btn primary" id="adminSave">حفظ</button><button class="btn" data-close>إلغاء</button></div>
+</div></div>
+<div class="toast" id="toast"></div>
+
+<script>
+const PAY={cash:{label:'كاش',icon:'fa-money-bill-wave'},card:{label:'فيزا / كارت',icon:'fa-credit-card'},instapay:{label:'إنستاباي',icon:'fa-mobile-screen'},wallet:{label:'محفظة (فودافون كاش)',icon:'fa-wallet'}};
+const TYPES={dine_in:'🪑 داخل المطعم',takeaway:'🥡 تيك أواي',delivery:'🚗 توصيل'};
+const CATS={appetizers:'مقبلات',mains:'أطباق رئيسية',beverages:'مشروبات',desserts:'حلويات'};
+const TZ='Africa/Cairo';
+let token=sessionStorage.getItem('fh_admin_token')||'',me=null,pending=[],orders=[],menu=[],feedback=[],admins=[],known=new Set(),first=true,timer=null;
+const $=id=>document.getElementById(id);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const money=n=>(Number(n)||0).toLocaleString('en-US',{maximumFractionDigits:2});
+const dayKey=d=>new Date(d).toLocaleDateString('en-CA',{timeZone:TZ});
+const timeStr=d=>new Date(d).toLocaleTimeString('ar-EG',{timeZone:TZ,hour:'2-digit',minute:'2-digit'});
+const dateStr=d=>new Date(d).toLocaleDateString('ar-EG',{timeZone:TZ,day:'numeric',month:'short',year:'numeric'});
+const payTag=m=>PAY[m]?`<span class="tag"><i class="fas ${PAY[m].icon}"></i> ${PAY[m].label}</span>`:'<span class="tag none">غير محدد</span>';
+const where=o=>o.order_type==='dine_in'&&o.table_number?' · طاولة '+esc(o.table_number):o.order_type==='delivery'&&o.delivery_address?'<br><small style="color:var(--muted)">'+esc(o.delivery_address)+'</small>':'';
+function toast(m,bad){const t=$('toast');t.textContent=m;t.className='toast show'+(bad?' bad':'');clearTimeout(toast._t);toast._t=setTimeout(()=>t.classList.remove('show'),2600)}
+
+async function api(action,params={}){
+  const r=await fetch('/api/admin',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify({action,...params})});
+  const raw=await r.text();let j;
+  try{j=JSON.parse(raw)}catch{console.error('API',r.status,raw);throw new Error('رد غير متوقع من السيرفر — كود '+r.status)}
+  if(r.status===401&&action!=='login'){logout(true);throw new Error(j.error)}
+  if(!j.success)throw new Error(j.error||'حصل خطأ');
+  return j;
+}
+async function login(){
+  $('loginErr').textContent='';$('loginBtn').disabled=true;
+  try{const j=await api('login',{username:$('un').value,password:$('pw').value});token=j.token;me=j.user;sessionStorage.setItem('fh_admin_token',token);$('pw').value='';start()}
+  catch(e){$('loginErr').textContent=e.message}
+  $('loginBtn').disabled=false;
+}
+function logout(silent){
+  sessionStorage.removeItem('fh_admin_token');token='';me=null;clearInterval(timer);
+  $('login').style.display='flex';$('topbar').hidden=true;$('app').hidden=true;
+  if(!silent){$('pw').value='';$('un').value=''}
+}
+$('loginBtn').onclick=login;$('logoutBtn').onclick=()=>logout(false);
+['un','pw'].forEach(id=>$(id).addEventListener('keydown',e=>{if(e.key==='Enter')login()}));
+
+async function start(){
+  $('login').style.display='none';$('topbar').hidden=false;$('app').hidden=false;
+  $('dayPicker').value=dayKey(Date.now());
+  if(me)$('whoami').textContent='👤 '+(me.display_name||me.username);
+  await loadAll();clearInterval(timer);timer=setInterval(loadPending,15000);
+}
+async function loadAll(){
+  try{
+    const [p,o,m,f,a]=await Promise.all([api('pending'),api('orders'),api('menu'),api('feedback'),api('admins')]);
+    pending=p.data;orders=o.data;menu=m.data;feedback=f.data;admins=a.data;notePending();renderAll();
+  }catch(e){toast(e.message,true)}
+}
+async function loadPending(){try{pending=(await api('pending')).data;notePending();renderPending()}catch{}}
+function notePending(){
+  const ids=new Set(pending.map(p=>p.id));
+  if(!first&&[...ids].some(id=>!known.has(id)))toast('طلب جديد وصل 🔔');
+  known=ids;first=false;
+}
+$('refreshBtn').onclick=async()=>{await loadAll();toast('تم التحديث')};
+document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active',t===b));
+  document.querySelectorAll('.pane').forEach(p=>p.classList.toggle('active',p.id==='pane-'+b.dataset.tab));
+});
+
+function sumBy(list){
+  const s={total:0,count:list.length,cash:0,card:0,instapay:0,wallet:0,none:0};
+  list.forEach(r=>{const t=Number(r.total)||0;s.total+=t;PAY[r.payment_method]?s[r.payment_method]+=t:s.none+=t});
+  return s;
+}
+function renderAll(){renderToday();renderPending();renderDay();renderOrders();renderMenu();renderFeedback();renderAdmins()}
+
+function renderToday(){
+  const s=sumBy(orders.filter(r=>r.created_at&&dayKey(r.created_at)===dayKey(Date.now())));
+  $('todayLabel').textContent=dateStr(Date.now());$('todayTotal').textContent=money(s.total);$('todayCount').textContent=s.count;
+  $('todayPay').innerHTML=Object.entries(PAY).map(([k,v])=>`<div class="pay-card"><small><i class="fas ${v.icon}"></i> ${v.label}</small><b>${money(s[k])}</b></div>`).join('')
+    +(s.none?`<div class="pay-card"><small><i class="fas fa-circle-question"></i> غير محدد</small><b>${money(s.none)}</b></div>`:'');
+}
+function renderPending(){
+  $('pendingCount').textContent=pending.length;$('pendingCount').classList.toggle('zero',!pending.length);
+  if(!pending.length){$('reqList').innerHTML='<div class="empty" style="grid-column:1/-1"><i class="fas fa-inbox"></i>مفيش طلبات مستنية دلوقتي.<br>أي طلب جديد هيظهر هنا لوحده.</div>';return}
+  const chosen={};document.querySelectorAll('.req').forEach(el=>{const c=el.querySelector('input:checked');if(c)chosen[el.dataset.id]=c.value});
+  $('reqList').innerHTML=pending.map((p,i)=>{
+    const d=p.order_data||{},sel=chosen[p.id]||'cash';
+    return `<article class="req" data-id="${esc(p.id)}">
+      <div class="req-head"><div><h3>${esc(d.customer_name||'بدون اسم')}</h3>
+        <div class="meta">${esc(d.customer_phone||'')}${p.created_at?' · '+timeStr(p.created_at):''}</div></div><span class="queue">#${i+1}</span></div>
+      <div class="kv"><span><b>${TYPES[d.order_type]||''}</b></span>${d.table_number?`<span>طاولة: <b>${esc(d.table_number)}</b></span>`:''}
+        ${d.delivery_address?`<span>العنوان: <b>${esc(d.delivery_address)}</b></span>`:''}${d.notes?`<span>ملاحظات: <b>${esc(d.notes)}</b></span>`:''}</div>
+      <div class="lines">${(p.items_data||[]).map(x=>`<div class="line"><div class="name"><i class="fas fa-utensils"></i><span>${esc(x.name)} × ${x.quantity}</span></div><div class="amt">${money(x.price*x.quantity)} ج.م</div></div>`).join('')}</div>
+      <div class="req-total"><span>الإجمالي</span><b>${money(d.total)} ج.م</b></div>
+      <div class="pay-pick">${Object.entries(PAY).map(([k,v])=>`<label><input type="radio" name="pay-${esc(p.id)}" value="${k}" ${k===sel?'checked':''}><span><i class="fas ${v.icon}"></i> ${v.label}</span></label>`).join('')}</div>
+      <div class="req-actions"><button class="btn ok" onclick="approve('${esc(p.id)}',this)"><i class="fas fa-check"></i> تأكيد وحفظ</button>
+        <button class="btn danger" onclick="reject('${esc(p.id)}',this)"><i class="fas fa-xmark"></i> رفض</button></div></article>`;
+  }).join('');
+}
+async function approve(id,btn){
+  const m=btn.closest('.req').querySelector('input:checked')?.value;if(!m)return toast('اختار طريقة الدفع',true);
+  btn.disabled=true;try{await api('approve',{id,payment_method:m});toast('تم الحفظ ✅');await loadAll()}catch(e){toast(e.message,true);btn.disabled=false}
+}
+async function reject(id,btn){
+  if(!confirm('متأكد إنك عايز ترفض الطلب ده؟ هيتمسح.'))return;
+  btn.disabled=true;try{await api('reject',{id});toast('تم رفض الطلب');await loadAll()}catch(e){toast(e.message,true);btn.disabled=false}
+}
+
+const rowOrd=(r,withDate)=>`<tr><td>${withDate?dateStr(r.created_at)+'<br><small style="color:var(--muted)">'+timeStr(r.created_at)+'</small>':timeStr(r.created_at)}</td>
+  <td>${esc(r.customer_name)}${withDate?'':'<br><small style="color:var(--muted)">'+esc(r.customer_phone)+'</small>'}</td>${withDate?`<td dir="ltr" style="text-align:right">${esc(r.customer_phone)}</td>`:''}
+  <td>${TYPES[r.order_type]||''}${where(r)}</td><td>${esc(r.items_summary).replace(/ \| /g,'<br>')}</td><td class="num">${money(r.total)}</td><td>${payTag(r.payment_method)}</td></tr>`;
+
+function renderDay(){
+  const key=$('dayPicker').value||dayKey(Date.now());
+  const list=orders.filter(r=>r.created_at&&dayKey(r.created_at)===key).sort((a,b)=>new Date(a.created_at)-new Date(b.created_at));
+  $('dayRows').innerHTML=list.length?list.map(r=>rowOrd(r,false)).join(''):'<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:2rem">مفيش طلبات في اليوم ده</td></tr>';
+  const s=sumBy(list);
+  $('dayFoot').innerHTML=list.length?`<tr><td colspan="4">الإجمالي (${s.count} طلب)</td><td class="num">${money(s.total)}</td><td>${Object.entries(PAY).filter(([k])=>s[k]).map(([k,v])=>v.label+': '+money(s[k])).join(' | ')}${s.none?' | غير محدد: '+money(s.none):''}</td></tr>`:'';
+  const days={};orders.forEach(r=>{if(r.created_at)(days[dayKey(r.created_at)]??=[]).push(r)});
+  $('historyRows').innerHTML=Object.keys(days).sort().reverse().map(d=>{const x=sumBy(days[d]);
+    return `<tr><td>${d}</td><td class="num">${x.count}</td><td class="num"><b>${money(x.total)}</b></td><td class="num">${money(x.cash)}</td><td class="num">${money(x.card)}</td><td class="num">${money(x.instapay)}</td><td class="num">${money(x.wallet)}</td><td class="num">${money(x.none)}</td></tr>`}).join('')
+    ||'<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:1.5rem">لسه مفيش بيانات</td></tr>';
+}
+$('dayPicker').onchange=renderDay;$('todayBtn').onclick=()=>{$('dayPicker').value=dayKey(Date.now());renderDay()};
+
+function renderOrders(){
+  const q=$('ordSearch').value.trim().toLowerCase();
+  const list=q?orders.filter(r=>[r.customer_name,r.customer_phone].some(v=>String(v||'').toLowerCase().includes(q))):orders;
+  const shown=list.slice(0,300);
+  $('ordInfo').textContent=`${list.length} طلب${list.length>shown.length?` (بنعرض أحدث ${shown.length} — التصدير بيشمل الكل)`:''}`;
+  $('ordRows').innerHTML=shown.length?shown.map(r=>rowOrd(r,true)).join(''):'<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:2rem">مفيش نتائج</td></tr>';
+}
+$('ordSearch').oninput=renderOrders;
+
+function renderMenu(){
+  $('menuRows').innerHTML=menu.length?menu.map(m=>`<tr><td><b>${esc(m.name)}</b>${m.is_popular?' ⭐':''}<br><small style="color:var(--muted)" dir="ltr">${esc(m.name_en||'')}</small></td>
+    <td>${CATS[m.category]||esc(m.category)}</td><td class="num">${money(m.price)}</td>
+    <td>${m.available?'<span class="tag pos">ظاهر</span>':'<span class="tag neg">مخفي</span>'}</td>
+    <td style="white-space:nowrap"><button class="btn small" onclick="openItem(${m.id})"><i class="fas fa-pen"></i></button>
+      <button class="btn small" onclick="toggleItem(${m.id})">${m.available?'إخفاء':'إظهار'}</button>
+      <button class="btn small danger" onclick="delItem(${m.id})"><i class="fas fa-trash"></i></button></td></tr>`).join('')
+    :'<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:2rem">المنيو فاضي</td></tr>';
+}
+const openModal=id=>$(id).classList.add('open');
+document.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>b.closest('.modal-bg').classList.remove('open'));
+document.querySelectorAll('.modal-bg').forEach(m=>m.addEventListener('mousedown',e=>{if(e.target===m)m.classList.remove('open')}));
+let editing=null;
+$('newItemBtn').onclick=()=>openItem(null);
+function openItem(id){
+  editing=id?menu.find(m=>m.id===id):null;const m=editing||{};
+  $('itemTitle').textContent=editing?'تعديل '+m.name:'صنف جديد';
+  $('iName').value=m.name||'';$('iNameEn').value=m.name_en||'';$('iDesc').value=m.description||'';
+  $('iPrice').value=m.price??'';$('iCat').value=m.category||'mains';$('iPop').checked=!!m.is_popular;$('itemErr').textContent='';openModal('itemModal');
+}
+$('itemSave').onclick=async()=>{
+  $('itemErr').textContent='';$('itemSave').disabled=true;
+  try{await api('menu_save',{id:editing?.id,name:$('iName').value,name_en:$('iNameEn').value,description:$('iDesc').value,price:$('iPrice').value,category:$('iCat').value,is_popular:$('iPop').checked});
+    $('itemModal').classList.remove('open');toast('تم الحفظ ✅');await loadAll()}catch(e){$('itemErr').textContent=e.message}
+  $('itemSave').disabled=false;
+};
+async function toggleItem(id){const m=menu.find(x=>x.id===id);try{await api('menu_save',{id,available:!m.available});await loadAll()}catch(e){toast(e.message,true)}}
+async function delItem(id){const m=menu.find(x=>x.id===id);if(!confirm('تمسح '+m.name+'؟'))return;try{await api('menu_delete',{id});toast('تم المسح');await loadAll()}catch(e){toast(e.message,true)}}
+
+function renderFeedback(){
+  const L={compliment:'🌟 إشادة',suggestion:'💡 اقتراح',complaint:'⚠️ شكوى'};
+  $('fbRows').innerHTML=feedback.length?feedback.map(f=>`<tr><td>${dateStr(f.created_at)}<br><small style="color:var(--muted)">${timeStr(f.created_at)}</small></td><td>${esc(f.customer_name)}</td>
+    <td dir="ltr" style="text-align:right">${esc(f.customer_phone)}</td><td class="stars">${'★'.repeat(f.rating||0)}${'☆'.repeat(5-(f.rating||0))}</td><td>${L[f.feedback_type]||esc(f.feedback_type)}</td><td>${esc(f.message)}</td></tr>`).join('')
+    :'<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:2rem">مفيش تقييمات لسه</td></tr>';
+}
+
+let adminTarget=null;
+function renderAdmins(){
+  $('adminRows').innerHTML=admins.map(a=>`<tr><td><b>${esc(a.display_name||a.username)}</b>${me&&a.id===me.id?' <span class="tag">أنت</span>':''}</td>
+    <td dir="ltr" style="text-align:right">${esc(a.username)}</td><td>${a.last_login?dateStr(a.last_login)+' '+timeStr(a.last_login):'—'}</td>
+    <td style="white-space:nowrap"><button class="btn small" onclick="openAdmin(${a.id})"><i class="fas fa-key"></i> تغيير كلمة السر</button>
+    ${me&&a.id===me.id?'':`<button class="btn small danger" onclick="delAdmin(${a.id})"><i class="fas fa-trash"></i></button>`}</td></tr>`).join('');
+}
+$('newAdminBtn').onclick=()=>openAdmin(null);
+function openAdmin(id){
+  adminTarget=id?admins.find(a=>a.id===id):null;
+  $('adminModalTitle').textContent=adminTarget?'كلمة سر جديدة — '+(adminTarget.display_name||adminTarget.username):'مدير جديد';
+  $('adminNewFields').style.display=adminTarget?'none':'';$('aDisplay').value='';$('aUser').value='';$('aPass').value='';$('adminErr').textContent='';openModal('adminModal');
+}
+$('adminSave').onclick=async()=>{
+  $('adminErr').textContent='';$('adminSave').disabled=true;
+  try{adminTarget?await api('admin_password',{id:adminTarget.id,password:$('aPass').value}):await api('admin_add',{username:$('aUser').value,display_name:$('aDisplay').value,password:$('aPass').value});
+    $('adminModal').classList.remove('open');toast('تم الحفظ ✅');await loadAll()}catch(e){$('adminErr').textContent=e.message}
+  $('adminSave').disabled=false;
+};
+async function delAdmin(id){const a=admins.find(x=>x.id===id);if(!confirm('تمسح المدير '+(a.display_name||a.username)+'؟'))return;try{await api('admin_delete',{id});toast('تم المسح');await loadAll()}catch(e){toast(e.message,true)}}
+
+$('exportBtn').onclick=async()=>{
+  $('exportBtn').disabled=true;
+  try{
+    await loadAll();const wb=XLSX.utils.book_new();wb.Workbook={Views:[{RTL:true}]};
+    const rows=[...orders].sort((a,b)=>new Date(a.created_at)-new Date(b.created_at)).map(r=>({'التاريخ':dayKey(r.created_at),'الوقت':timeStr(r.created_at),'العميل':r.customer_name,'التليفون':r.customer_phone||'',
+      'النوع':TYPES[r.order_type]||'','الطاولة':r.table_number||'','العنوان':r.delivery_address||'','الطلب':r.items_summary||'','ملاحظات':r.notes||'','الإجمالي':Number(r.total)||0,'الدفع':PAY[r.payment_method]?.label||'غير محدد'}));
+    XLSX.utils.book_append_sheet(wb,rows.length?XLSX.utils.json_to_sheet(rows):XLSX.utils.aoa_to_sheet([['لا توجد بيانات']]),'الطلبات');
+    const days={};orders.forEach(r=>(days[dayKey(r.created_at)]??=[]).push(r));
+    const dr=Object.keys(days).sort().map(d=>{const x=sumBy(days[d]);return {'اليوم':d,'الطلبات':x.count,'الإجمالي':x.total,'كاش':x.cash,'فيزا':x.card,'إنستاباي':x.instapay,'محفظة':x.wallet,'غير محدد':x.none}});
+    XLSX.utils.book_append_sheet(wb,dr.length?XLSX.utils.json_to_sheet(dr):XLSX.utils.aoa_to_sheet([['لا توجد بيانات']]),'إجمالي الأيام');
+    XLSX.writeFile(wb,`flavour-haven-${dayKey(Date.now())}.xlsx`);toast('تم تصدير الملف');
+  }catch(e){toast(e.message,true)}
+  $('exportBtn').disabled=false;
+};
+
+if(token)api('ping').then(j=>{me=j.user;start()}).catch(()=>logout(true));else $('un').focus();
+</script></body></html>
