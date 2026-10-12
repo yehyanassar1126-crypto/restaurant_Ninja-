@@ -1,65 +1,52 @@
 const { createClient } = require('@supabase/supabase-js');
-const brevo = require('@getbrevo/brevo');
 
 module.exports = async function handler(req, res) {
-    if (req.method !== 'POST') {
-        return res.status(405).json({ error: 'Method Not Allowed' });
-    }
-
-    const { rating, type, message, customerName, customerPhone } = req.body;
+    if (req.method !== 'POST') return res.status(405).json({ error: 'Method Not Allowed' });
+    const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 
     try {
-        // Save to Supabase
-        const supabase = createClient(
-            process.env.SUPABASE_URL,
-            process.env.SUPABASE_SERVICE_ROLE_KEY
-        );
+        const { orderData, items } = req.body || {};
+        if (!orderData?.customer_name || !Array.isArray(items) || !items.length || items.length > 50)
+            return res.status(400).json({ success: false, error: 'بيانات الطلب غير مكتملة' });
 
-        const { error: dbError } = await supabase.from('customer_feedback').insert([{
-            customer_name: customerName,
-            customer_phone: customerPhone,
-            rating: parseInt(rating),
-            feedback_type: type,
-            message: message
-        }]);
+        // Prices always come from the database, never from the browser.
+        const ids = [...new Set(items.map(i => Number(i.id)))];
+        const { data: menu, error: mErr } = await supabase.from('menu_items').select('id, name, price').in('id', ids).eq('available', true);
+        if (mErr) throw mErr;
+        const byId = Object.fromEntries(menu.map(m => [m.id, m]));
 
-        if (dbError) throw new Error("Database failed: " + dbError.message);
+        const lines = [];
+        for (const i of items) {
+            const m = byId[Number(i.id)], q = Math.trunc(Number(i.quantity));
+            if (!m || !(q >= 1 && q <= 50)) return res.status(400).json({ success: false, error: 'فيه صنف غير متاح أو كمية غير صحيحة' });
+            lines.push({ id: m.id, name: m.name, price: Number(m.price), quantity: q });
+        }
+        const total = lines.reduce((s, l) => s + l.price * l.quantity, 0);
+        const type = ['dine_in', 'takeaway', 'delivery'].includes(orderData.order_type) ? orderData.order_type : 'dine_in';
 
-        // Send email alert via Brevo
-        let apiInstance = new brevo.TransactionalEmailsApi();
-        apiInstance.setApiKey(brevo.TransactionalEmailsApiApiKeys.apiKey, process.env.BREVO_API_KEY);
+        const fullOrderData = {
+            customer_name: String(orderData.customer_name).slice(0, 100),
+            customer_phone: String(orderData.customer_phone || '').slice(0, 30),
+            order_type: type,
+            table_number: type === 'dine_in' ? String(orderData.table_number || '').slice(0, 20) || null : null,
+            delivery_address: type === 'delivery' ? String(orderData.delivery_address || '').slice(0, 300) || null : null,
+            notes: String(orderData.notes || '').slice(0, 500) || null,
+            items_summary: lines.map(l => `${l.name} x${l.quantity}`).join(' | '),
+            subtotal: total,
+            total
+        };
 
-        let sendSmtpEmail = new brevo.SendSmtpEmail();
-        sendSmtpEmail.sender = { "name": "Flavour Haven", "email": "restaurant22nassar@gmail.com" };
-        sendSmtpEmail.to = [{ "email": "restaurant22nassar@gmail.com" }];
-        sendSmtpEmail.subject = `🍽️ Customer Feedback from ${customerName}`;
+        const { data: pending, error } = await supabase.from('pending_orders')
+            .insert([{ order_data: fullOrderData, items_data: lines }]).select();
+        if (error) throw error;
+        const pendingId = pending[0].id;
 
-        const ratingStars = '⭐'.repeat(parseInt(rating));
-        const typeLabels = { compliment: '🌟 إشادة', suggestion: '💡 اقتراح', complaint: '⚠️ شكوى' };
+        const { count } = await supabase.from('pending_orders').select('id', { count: 'exact', head: true }).lt('id', pendingId);
+        const queuePosition = count || 0;
 
-        sendSmtpEmail.htmlContent = `
-            <div style="font-family: 'Segoe UI', Arial, sans-serif; direction: rtl; text-align: right; background: linear-gradient(135deg, #1C1410 0%, #2a1f17 100%); padding: 30px; border-radius: 16px; color: #FAF5EB; max-width: 600px; margin: 0 auto;">
-                <div style="text-align: center; margin-bottom: 20px;">
-                    <h1 style="color: #D4A853; font-size: 24px; margin: 0;">🍽️ Flavour Haven</h1>
-                    <p style="color: rgba(212,168,83,0.8); margin: 5px 0;">تقييم جديد من عميل</p>
-                </div>
-                <div style="background: rgba(212,168,83,0.1); border: 1px solid rgba(212,168,83,0.2); border-radius: 12px; padding: 20px;">
-                    <p><strong>👤 العميل:</strong> ${customerName}</p>
-                    <p><strong>📱 الهاتف:</strong> ${customerPhone}</p>
-                    <p><strong>📊 التقييم:</strong> ${ratingStars}</p>
-                    <p><strong>📋 النوع:</strong> ${typeLabels[type] || type}</p>
-                    <hr style="border-top: 1px solid rgba(212,168,83,0.3);">
-                    <p><strong>💬 الرسالة:</strong></p>
-                    <p style="background: rgba(0,0,0,0.2); padding: 12px; border-radius: 8px;">${message}</p>
-                </div>
-            </div>`;
-
-        await apiInstance.sendTransacEmail(sendSmtpEmail);
-
-        return res.status(200).json({ success: true });
-
+        return res.status(200).json({ success: true, queuePosition, estimatedMinutes: queuePosition * 15, orderId: pendingId });
     } catch (error) {
-        console.error("Feedback Error:", error);
+        console.error('Order Error:', error);
         return res.status(500).json({ success: false, error: error.message });
     }
-}
+};
