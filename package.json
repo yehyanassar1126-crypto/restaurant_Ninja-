@@ -2,7 +2,6 @@
   "name": "flavour-haven-backend",
   "version": "1.0.0",
   "dependencies": {
-    "@getbrevo/brevo": "^2.5.0",
     "@supabase/supabase-js": "^2.39.0"
   }
 }
